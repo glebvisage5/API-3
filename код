@@ -1,0 +1,70 @@
+import pygame
+import requests
+import sys
+import os
+import math
+
+step = 0.008
+class MapParams(object):
+    def __init__(self):
+        self.lat = 52.619412
+        self.lon = 39.57316
+        self.zoom = 16
+        self.type = "map"
+
+    def ll(self):
+        return str(self.lon) + "," + str(self.lat)
+
+    def update(self, event):
+        if event.key == pygame.K_PAGEUP and self.zoom < 19:
+            self.zoom += 1
+        elif event.key == pygame.K_PAGEDOWN and self.zoom > 2:
+            self.zoom -= 1
+        elif event.key == pygame.K_LEFT:
+            self.lon -= step * math.pow(2, 15 - self.zoom)
+        elif event.key == pygame.K_RIGHT:
+            self.lon += step * math.pow(2, 15 - self.zoom)
+        elif event.key == pygame.K_UP and self.lat < 85:
+            self.lat += step * math.pow(2, 15 - self.zoom)
+        elif event.key == pygame.K_DOWN and self.lat > -85:
+            self.lat -= step * math.pow(2, 15 - self.zoom)
+
+
+def load_map(mp):
+    map_request = "http://static-maps.yandex.ru/1.x/?ll={ll}&z={z}&l={type}".format(ll=mp.ll(), z=mp.zoom, type=mp.type)
+    response = requests.get(map_request)
+    if not response:
+        print("Ошибка выполнения запроса:")
+        print(map_request)
+        print("Http статус:", response.status_code, "(", response.reason, ")")
+        sys.exit(1)
+
+    map_file = "map.png"
+    try:
+        with open(map_file, "wb") as file:
+            file.write(response.content)
+    except IOError as ex:
+        print("Ошибка записи временного файла:", ex)
+        sys.exit(2)
+    return map_file
+
+
+def main():
+    pygame.init()
+    screen = pygame.display.set_mode((600, 450))
+    mp = MapParams()
+    map_file = load_map(mp)
+    screen.blit(pygame.image.load(map_file), (0, 0))
+    pygame.display.flip()
+    while True:
+        event = pygame.event.wait()
+        if event.type == pygame.QUIT:
+            break
+        elif event.type == pygame.KEYDOWN:
+            mp.update(event)
+    pygame.quit()
+    os.remove(map_file)
+
+
+if __name__ == "__main__":
+    main()
